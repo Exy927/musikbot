@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музыкальный гид - определи свои вкусы</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #fafafa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .bot-message {
+            background-color: #e3f2fd;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .option-btn {
+            padding: 8px 15px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .option-btn:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .result {
+            background-color: #e8f5e9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .artist-card {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .artist-card img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 15px;
+        }
+        
+        .progress-bar {
+            height: 5px;
+            background-color: #e0e0e0;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Музыкальный гид</h1>
+        
+        <div class="progress-bar">
+            <div class="progress" id="progress"></div>
+        </div>
+        
+        <div class="chat-container" id="chat">
+            <!-- Сообщения будут добавляться здесь -->
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Введите ваш ответ..." autocomplete="off">
+            <button id="sendBtn">Отправить</button>
+        </div>
+        
+        <div class="result" id="result">
+            <h2>🎧 Ваши музыкальные рекомендации</h2>
+            <p>На основе ваших ответов мы подобрали для вас следующие исполнителей и жанры:</p>
+            <div id="recommendations"></div>
+            <button id="restartBtn" style="margin-top: 20px;">Начать заново</button>
+        </div>
+    </div>
+
+    <script>
+        // Состояние бота
+        const botState = {
+            currentQuestion: 0,
+            answers: {},
+            progress: 0
+        };
+        
+        // Вопросы и варианты ответов
+        const questions = [
+            {
+                text: "Привет! Я помогу тебе определить твои музыкальные предпочтения. Как тебя зовут?",
+                type: "text",
+                key: "name"
+            },
+            {
+                text: "Как часто ты слушаешь музыку?",
+                type: "options",
+                options: ["Каждый день", "Несколько раз в неделю", "Редко", "Только в особых случаях"],
+                key: "frequency"
+            },
+            {
+                text: "В каких ситуациях ты обычно слушаешь музыку?",
+                type: "options",
+                options: ["Во время работы/учебы", "На тренировках", "В транспорте", "На вечеринках", "Когда нужно расслабиться"],
+                key: "situation"
+            },
+            {
+                text: "Какой жанр музыки тебе нравится больше всего?",
+                type: "options",
+                options: ["Поп", "Рок", "Хип-хоп/Рэп", "Электронная", "Джаз/Блюз", "Классика", "Альтернатива", "Метал"],
+                key: "genre"
+            },
+            {
+                text: "Какой десятилетие в музыке тебе больше нравится?",
+                type: "options",
+                options: ["60-е", "70-е", "80-е", "90-е", "2000-е", "2010-е", "Современная музыка"],
+                key: "decade"
+            },
+            {
+                text: "Ты предпочитаешь известных исполнителей или независимых?",
+                type: "options",
+                options: ["Известных (мейнстрим)", "Независимых (инди)", "Не имеет значения"],
+                key: "popularity"
+            },
+            {
+                text: "Какой инструмент тебе нравится больше всего в музыке?",
+                type: "options",
+                options: ["Гитара", "Фортепиано", "Барабаны", "Синтезатор", "Скрипка", "Вокал", "Все вместе"],
+                key: "instrument"
+            },
+            {
+                text: "Ты предпочитаешь быстрые или медленные композиции?",
+                type: "options",
+                options: ["Быстрые", "Медленные", "Зависит от настроения"],
+                key: "tempo"
+            }
+        ];
+        
+        // Рекомендации на основе ответов
+        const recommendations = {
+            genre: {
+                "Поп": [
+                    {name: "Taylor Swift", image: "https://i.scdn.co/image/ab6761610000e5eb9e690225ad4445530612ccc9"},
+                    {name: "Dua Lipa", image: "https://i.scdn.co/image/ab6761610000e5eb5a00969a4698c3132a15fbb0"},
+                    {name: "The Weeknd", image: "https://i.scdn.co/image/ab6761610000e5eb214f3cf1cbe7139c1e26ffbb"}
+                ],
+                "Рок": [
+                    {name: "Queen", image: "https://i.scdn.co/image/ab6761610000e5eb0bae7cfd3b32b10154e0b8b3"},
+                    {name: "The Beatles", image: "https://i.scdn.co/image/ab6761610000e5eb8ae7f2aaa9817a704a87ea36"},
+                    {name: "Arctic Monkeys", image: "https://i.scdn.co/image/ab6761610000e5eb6be070445b03e0b63147c2c1"}
+                ],
+                "Хип-хоп/Рэп": [
+                    {name: "Kendrick Lamar", image: "https://i.scdn.co/image/ab6761610000e5eb437b9e2a82505b3d93ff1022"},
+                    {name: "Travis Scott", image: "https://i.scdn.co/image/ab6761610000e5eb12e3f20d05a8d6cfde988715"},
+                    {name: "Eminem", image: "https://i.scdn.co/image/ab6761610000e5eb437b9e2a82505b3d93ff1022"}
+                ],
+                "Электронная": [
+                    {name: "Daft Punk", image: "https://i.scdn.co/image/ab6761610000e5eb0a7388b95df960b5c0a3a0c3"},
+                    {name: "The Chemical Brothers", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"},
+                    {name: "deadmau5", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"}
+                ],
+                "Джаз/Блюз": [
+                    {name: "Louis Armstrong", image: "https://i.scdn.co/image/ab6761610000e5eb0a7388b95df960b5c0a3a0c3"},
+                    {name: "Miles Davis", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"},
+                    {name: "B.B. King", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"}
+                ],
+                "Классика": [
+                    {name: "Ludwig van Beethoven", image: "https://i.scdn.co/image/ab67616d0000b273689de092a1c78d6e97a6a0a6"},
+                    {name: "Wolfgang Amadeus Mozart", image: "https://i.scdn.co/image/ab67616d0000b273689de092a1c78d6e97a6a0a6"},
+                    {name: "Pyotr Ilyich Tchaikovsky", image: "https://i.scdn.co/image/ab67616d0000b273689de092a1c78d6e97a6a0a6"}
+                ],
+                "Альтернатива": [
+                    {name: "Radiohead", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"},
+                    {name: "The Strokes", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"},
+                    {name: "Arcade Fire", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"}
+                ],
+                "Метал": [
+                    {name: "Metallica", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"},
+                    {name: "Iron Maiden", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"},
+                    {name: "Slipknot", image: "https://i.scdn.co/image/ab6761610000e5eb6a8e5e8752d1dc2d7e2f7c4e"}
+                ]
+            },
+            decade: {
+                "60-е": ["The Beatles", "The Rolling Stones", "Bob Dylan"],
+                "70-е": ["Led Zeppelin", "Pink Floyd", "David Bowie"],
+                "80-е": ["Michael Jackson", "Madonna", "Prince"],
+                "90-е": ["Nirvana", "Pearl Jam", "Radiohead"],
+                "2000-е": ["Coldplay", "The White Stripes", "OutKast"],
+                "2010-е": ["Kendrick Lamar", "Tame Impala", "Billie Eilish"],
+                "Современная музыка": ["Olivia Rodrigo", "Doja Cat", "Bad Bunny"]
+            }
+        };
+        
+        // Элементы DOM
+        const chatContainer = document.getElementById('chat');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const resultDiv = document.getElementById('result');
+        const recommendationsDiv = document.getElementById('recommendations');
+        const restartBtn = document.getElementById('restartBtn');
+        const progressBar = document.getElementById('progress');
+        
+        // Инициализация чата
+        function initChat() {
+            addBotMessage(questions[botState.currentQuestion].text);
+            if (questions[botState.currentQuestion].type === "options") {
+                showOptions(questions[botState.currentQuestion].options);
+            }
+            updateProgress();
+        }
+        
+        // Добавление сообщения от бота
+        function addBotMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', 'bot-message');
+            messageDiv.textContent = text;
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        // Добавление сообщения от пользователя
+        function addUserMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', 'user-message');
+            messageDiv.textContent = text;
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        // Показать варианты ответов
+        function showOptions(options) {
+            const optionsDiv = document.createElement('div');
+            optionsDiv.classList.add('options');
+            
+            options.forEach(option => {
+                const optionBtn = document.createElement('div');
+                optionBtn.classList.add('option-btn');
+                optionBtn.textContent = option;
+                optionBtn.addEventListener('click', () => {
+                    handleOptionSelect(option);
+                });
+                optionsDiv.appendChild(optionBtn);
+            });
+            
+            chatContainer.appendChild(optionsDiv);
+            scrollToBottom();
+        }
+        
+        // Обработка выбора варианта
+        function handleOptionSelect(option) {
+            addUserMessage(option);
+            const currentQuestion = questions[botState.currentQuestion];
+            botState.answers[currentQuestion.key] = option;
+            
+            // Удаляем кнопки после выбора
+            const optionsDiv = chatContainer.querySelector('.options');
+            if (optionsDiv) {
+                optionsDiv.remove();
+            }
+            
+            nextQuestion();
+        }
+        
+        // Переход к следующему вопросу
+        function nextQuestion() {
+            botState.currentQuestion++;
+            botState.progress = (botState.currentQuestion / questions.length) * 100;
+            updateProgress();
+            
+            if (botState.currentQuestion < questions.length) {
+                setTimeout(() => {
+                    addBotMessage(questions[botState.currentQuestion].text);
+                    if (questions[botState.currentQuestion].type === "options") {
+                        showOptions(questions[botState.currentQuestion].options);
+                    }
+                }, 1000);
+            } else {
+                setTimeout(showResults, 1500);
+            }
+        }
+        
+        // Показать результаты
+        function showResults() {
+            addBotMessage(`Спасибо, ${botState.answers.name || 'друг'}! Сейчас проанализирую твои ответы и подберу рекомендации...`);
+            
+            setTimeout(() => {
+                resultDiv.style.display = 'block';
+                generateRecommendations();
+                scrollToBottom();
+            }, 2000);
+        }
+        
+        // Генерация рекомендаций
+        function generateRecommendations() {
+            recommendationsDiv.innerHTML = '';
+            
+            // Основной жанр
+            const mainGenre = botState.answers.genre;
+            if (mainGenre && recommendations.genre[mainGenre]) {
+                const genreHeader = document.createElement('h3');
+                genreHeader.textContent = `Основной жанр: ${mainGenre}`;
+                recommendationsDiv.appendChild(genreHeader);
+                
+                recommendations.genre[mainGenre].forEach(artist => {
+                    const card = document.createElement('div');
+                    card.classList.add('artist-card');
+                    card.innerHTML = `
+                        <img src="${artist.image}" alt="${artist.name}">
+                        <div>
+                            <h4>${artist.name}</h4>
+                            <p>Рекомендуем послушать</p>
+                        </div>
+                    `;
+                    recommendationsDiv.appendChild(card);
+                });
+            }
+            
+            // Дополнительные рекомендации по десятилетию
+            const decade = botState.answers.decade;
+            if (decade && recommendations.decade[decade]) {
+                const decadeHeader = document.createElement('h3');
+                decadeHeader.textContent = `Популярные исполнители ${decade}:`;
+                decadeHeader.style.marginTop = '20px';
+                recommendationsDiv.appendChild(decadeHeader);
+                
+                const list = document.createElement('ul');
+                recommendations.decade[decade].forEach(artist => {
+                    const item = document.createElement('li');
+                    item.textContent = artist;
+                    list.appendChild(item);
+                });
+                recommendationsDiv.appendChild(list);
+            }
+            
+            // Персонализированное сообщение
+            const personalMessage = document.createElement('p');
+            personalMessage.style.marginTop = '20px';
+            personalMessage.style.fontStyle = 'italic';
+            
+            if (botState.answers.frequency === "Каждый день") {
+                personalMessage.textContent = "Ты настоящий меломан! Попробуй расширить свои горизонты с нашими рекомендациями.";
+            } else if (botState.answers.situation === "На тренировках") {
+                personalMessage.textContent = "Для тренировок отлично подойдут энергичные треки из наших рекомендаций!";
+            } else {
+                personalMessage.textContent = "Надеемся, наши рекомендации помогут тебе открыть для себя новую музыку!";
+            }
+            
+            recommendationsDiv.appendChild(personalMessage);
+        }
+        
+        // Обновление прогресс-бара
+        function updateProgress() {
+            progressBar.style.width = `${botState.progress}%`;
+        }
+        
+        // Прокрутка чата вниз
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Обработчик отправки сообщения
+        function handleSend() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+            
+            addUserMessage(message);
+            userInput.value = '';
+            
+            const currentQuestion = questions[botState.currentQuestion];
+            if (currentQuestion.type === "text") {
+                botState.answers[currentQuestion.key] = message;
+                nextQuestion();
+            }
+        }
+        
+        // Перезапуск бота
+        function restartBot() {
+            botState.currentQuestion = 0;
+            botState.answers = {};
+            botState.progress = 0;
+            chatContainer.innerHTML = '';
+            resultDiv.style.display = 'none';
+            updateProgress();
+            initChat();
+        }
+        
+        // События
+        sendBtn.addEventListener('click', handleSend);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSend();
+        });
+        restartBtn.addEventListener('click', restartBot);
+        
+        // Запуск чата
+        initChat();
+    </script>
+</body>
+</html>
